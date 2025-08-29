@@ -1,0 +1,29 @@
+version: '3.8'
+services:
+  db:
+    image: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: La@YaiK3
+      POSTGRES_DB: minader_courrier
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgres://postgres:La@YaiK3@db:5432/minader_courrier
+      JWT_SECRET: "RXCT34ZE5GFDSFD756"
+      JWT_EXPIRES_IN: 1d
+    ports:
+      - "3002:3002"
+    depends_on:
+      - db
+    volumes:
+      - .:/app
+
+
+volumes:
+  db-data:

@@ -1,0 +1,38 @@
+{
+  "development": {
+    "username": "postgres",
+    "password": "La@YaiK3",
+    "database": "minader_courrier",
+    "host": "localhost",
+    "dialect": "postgres",
+    "port": 5432,
+    "logging": false,
+    "ssl": false
+  },
+  "test": {
+    "username": "votre_utilisateur_test",
+    "password": "votre_mot_de_passe_test",
+    "database": "votre_base_de_donnees_test",
+    "host": "localhost",
+    "dialect": "postgres",
+    "port": 5432,
+    "logging": false,
+    "ssl": false
+  },
+  "production": {
+    "username": "votre_utilisateur_prod",
+    "password": "votre_mot_de_passe_prod",
+    "database": "votre_base_de_donnees_prod",
+    "host": "votre_hote_production",
+    "dialect": "postgres",
+    "port": 5432,
+    "logging": false,
+    "ssl": true,
+    "dialectOptions": {
+      "ssl": {
+        "require": true,
+        "rejectUnauthorized": false
+      }
+    }
+  }
+}

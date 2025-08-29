@@ -1,0 +1,13 @@
+node_modules/
+npm-debug.log
+.git
+.gitignore
+.env
+Dockerfile
+.dockerignore
+README.md
+# Ajoutez ici d'autres fichiers/dossiers spécifiques à votre projet que vous ne voulez pas copier
+# Par exemple, si vous avez un dossier 'dist' généré par un build TypeScript, vous pourriez l'inclure si vous ne le construisez pas dans le Dockerfile
+# dist
+
+
