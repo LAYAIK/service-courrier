@@ -1,5 +1,6 @@
-import { createCourier, deleteCourier, getAllCouriers, getCourierById, searchCouriers, updateCourier } from "../controllers/courierController.js";
+import { createCourier, deleteCourier, getAllCouriers, getCourierById, searchCouriers, updateCourier, transfertCourier } from "../controllers/courierController.js";
 import express from "express";
+import multer from 'multer';
 
 /**
  * @fileOverview Route pour les courriers
@@ -73,7 +74,45 @@ import express from "express";
  *         date_archivage: "2023-10-01T12:00:00Z"
  *         date_traitement: "2023-10-01T12:00:00Z"
  *         date_reception: "2023-10-01T12:00:00Z"
- *  
+ */
+
+/** 
+ * @swagger
+ * tags:
+ *   - name: HistoriqueCourriers
+ *     description: Gestion des historiques de courriers
+ * components:
+ *   schemas:
+ *     HistoriqueCourrier:
+ *       type: object
+ *       properties:
+ *         id_historique:
+ *           type: string
+ *           format: uuid
+ *         id_courrier:
+ *           type: string
+ *           format: uuid
+ *         id_utilisateur:
+ *           type: string
+ *           format: uuid
+ *         id_structure:
+ *          type: string
+ *          format: uuid
+ *         date_historique:
+ *           type: string
+ *           format: date-time
+ *         action: 
+ *           type: string
+ *       required:
+ *         - id_courrier
+ *         - id_utilisateur
+ *       example:
+ *         id_courrier: "123e4567-e89b-12d3-a456-426614174000"
+ *         id_utilisateur: "123e4567-e89b-12d3-a456-426614174001"
+ *         id_structure: "123e4567-e89b-12d3-a456-426614174002"
+ *         date_historique: "2023-10-01T12:00:00Z"
+ *         action: "Transfert"
+ *
  * @swagger
  * /api/couriers:
  *   get:
@@ -204,22 +243,86 @@ import express from "express";
  *                 $ref: '#/components/schemas/Courier'
  *       500:
  *         description: Erreur lors de la recherche des courriers par mot-clé 
+ * 
+ * /api/couriers/{id}/transfert:
+ *   put:
+ *     summary: Transférer un courrier à une autre structure
+ *     tags: [Courriers]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: ID du courrier à transférer
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id_structure_nouveau: 
+ *                 type: string
+ *                 format: uuid
+ *                 description: ID de la nouvelle structure
+ *               id_utilisateur_transfert:
+ *                 type: string
+ *                 format: uuid
+ *                 description: ID de l'utilisateur transférant le courrier
+ *               id_status:
+ *                 type: string
+ *                 format: uuid
+ *                 description: ID du statut du courrier après transfert
+ *             required:
+ *               - id_structure_nouveau
+ *               - id_utilisateur_transfert
+ *               - id_status
+ *     responses:
+ *       200:
+ *         description: Courrier transféré avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Courier'
+ *       404:
+ *         description: Courrier non rencontré
+ *       400:
+ *         description: Tous les champs sont requis
+ *       500:
+ *         description: Erreur lors du transfert du courrier
  */
-
-
-
 const router = express.Router();
+
+// Configure storage for Multer
+const storage = multer.diskStorage({
+    destination: (_, __, cb) => {
+        cb(null, 'uploads/'); // The directory where files will be saved
+    },
+    filename: (_, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname); // Unique filename
+    }
+});
+
+const upload = multer({ storage: storage });
+
 router.route("/api/couriers")
-    .get(getAllCouriers) // Récupérer tous les courriers
-    .post(createCourier); // Créer un nouveau courrier
+.get(getAllCouriers) // Récupérer tous les courriers
+.post( upload.array('fichiers'),createCourier); // Créer un nouveau courrier
 
 router.route("/api/couriers/search")
     .get(searchCouriers); // Rechercher des courriers par mot-clé
 
 router.route("/api/couriers/:id")   
     .get(getCourierById) // Récupérer un courrier par ID
-    .put(updateCourier) // Mettre à jour un courrier par ID
+    .put(upload.array('fichiers'),updateCourier) // Mettre à jour un courrier par ID
     .delete(deleteCourier); // Supprimer un courrier par ID
+
+router.route("/api/couriers/:id/transfert")
+    .put(upload.array('fichiers'),transfertCourier)
+
+
 
 
 

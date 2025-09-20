@@ -13,15 +13,6 @@ const uploadController = {
             const { originalname, mimetype, size, filename, path: filePath } = req.file;
             const description = req.body.description; // Récupère la description ou d'autres champs du formulaire
 
-            console.log('Fichier uploadé et prêt à être traité :', {
-                originalname,
-                mimetype,
-                size: `${(size / (1024 * 1024)).toFixed(2)} MB`,
-                filename, 
-                filePath: filePath, 
-                description 
-            });
-
             // --- Mettre à jour la base de données
             try {
                 

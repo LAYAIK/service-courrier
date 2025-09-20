@@ -11,10 +11,46 @@ export default (sequelize, DataTypes) => {
       type: DataTypes.TEXT,
       allowNull: false
     },
-    numero_courrier: {
+    id_type_courrier: {
+      type: DataTypes.UUID,
+      allowNull: true
+    },
+    id_status: {
+      type: DataTypes.UUID,
+      allowNull: true
+    },
+    id_archive: {
+      type: DataTypes.UUID,
+      allowNull: true
+    },
+    id_structure: {
+      type: DataTypes.UUID,
+      allowNull: true
+    }, 
+    id_utilisateur: {
+      type: DataTypes.UUID,
+      allowNull: true
+    },
+    id_structure_destunataire: {
+      type: DataTypes.UUID,
+      allowNull: true
+    },
+    id_priorite: {
+      type: DataTypes.UUID,
+      allowNull: true
+    },
+    id_objet: {
+      type: DataTypes.UUID,
+      allowNull: true
+    },
+    reference_courrier: {
       type: DataTypes.STRING(100),
-      allowNull: false,
+      allowNull: true,
       unique: true
+    },
+    note: {
+      type: DataTypes.STRING(250),
+      allowNull: true
     },
     date_reception: { // Date de réception du courrier
       type: DataTypes.DATE,
@@ -47,7 +83,7 @@ export default (sequelize, DataTypes) => {
   Courrier.associate = (models) => {
     Courrier.belongsTo(models.TypeCourrier, { foreignKey: 'id_type_courrier', targetKey: 'id_type_courrier', onUpdate: 'SET NULL', onDelete: 'CASCADE' });
     Courrier.hasMany(models.Document, { foreignKey: 'id_courrier',targetKey: 'id_courrier', onUpdate: 'SET NULL', onDelete: 'CASCADE' });
-    Courrier.belongsTo(models.Archive, { foreignKey: 'id_courrier' , onUpdate: 'SET NULL', onDelete: '' });
+    Courrier.hasOne(models.Archive, { foreignKey: 'id_courrier', targetKey: 'id_courrier', onUpdate: 'SET NULL', onDelete: 'CASCADE' });
   };
 
   return Courrier;

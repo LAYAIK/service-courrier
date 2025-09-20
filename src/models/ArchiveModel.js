@@ -10,6 +10,15 @@ const Archive = sequelize.define("Archive", {
         type: DataTypes.TEXT,
         allowNull: true
     },
+    note: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    
+    id_utilisateur: {
+        type: DataTypes.UUID,
+        allowNull: false
+    },
     date_archivage: {
         type: DataTypes.DATE,
         allowNull: false,
@@ -22,7 +31,7 @@ const Archive = sequelize.define("Archive", {
 });
 Archive.associate = function (models) {
     Archive.hasMany(models.Document, { foreignKey: "id_archive" });
-    Archive.hasOne(models.Courrier, { foreignKey: "id_archive", onDelete: "CASCADE" , onUpdate: "CASCADE" });
+    Archive.hasMany(models.Courrier, { foreignKey: "id_archive", targetKey: "id_archive", onUpdate: "CASCADE", onDelete: "CASCADE" });
 };
 
 return Archive;

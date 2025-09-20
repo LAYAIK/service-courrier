@@ -17,9 +17,9 @@ async function runApplication() {
         await db.Archive.sync({ alter: true });
         await db.TypeCourrier.sync({ alter: true });
         await db.TypeDocument.sync({ alter: true });
-        await db.Courrier.sync({ alter: true });
-        
         await db.Document.sync({ alter: true });
+        await db.Courrier.sync({ alter: true });
+        await db.HistoriqueCourrier.sync({ alter: true });
 
         console.log('Tables synchronisées avec succès.');
 

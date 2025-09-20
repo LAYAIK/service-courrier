@@ -5,6 +5,7 @@ import typeDocumentRoutes from "./typeDocumentRoute.js";
 import TypeCourrierRoutes from "./typeCourrierRoute.js";
 import archiveRoutes from "./archiveRoute.js";
 import uploadRoutes from "./uploadRoute.js";
+import historiqueCourrierRoutes from "./historiqueCourrierRoute.js";
 
 
 const ApiRoutes = (app) => {
@@ -13,6 +14,7 @@ const ApiRoutes = (app) => {
     app.use(typeDocumentRoutes);
     app.use(TypeCourrierRoutes);
     app.use(archiveRoutes); // Route pour les archivesessagerieRoutes); // Route pour la messagerie
+    app.use(historiqueCourrierRoutes);
 
     app.use(uploadRoutes);
 };

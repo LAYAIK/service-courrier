@@ -4,16 +4,26 @@ import { Op } from 'sequelize';
 
 export const createDocumentController = async (req, res) => {
     try {
-        const { libelle, id_type_document, id_courrier, description,id_archive } = req.body;
-        if (!libelle || !id_type_document) {
+        const {id_type_document, id_courrier, description,id_archive } = req.body;
+        const fichierTelecharger = req.file; // Récupérer le fichier téléchargé
+
+        if ( !id_type_document) {
             return res.status(400).json({ message: 'Tous les champs sont requis' });
         }
 
-        const document = await Document.create({ libelle, id_type_document});
+        const document = await Document.create({id_type_document});
         if (id_courrier) document.id_courrier = id_courrier;
         if (description) document.description = description;
         if (id_archive) document.id_archive = id_archive;
         await document.save();
+        const fichiersauvegarder = fichierTelecharger.map(file => ({
+            libelle: file.originalname,
+            chemin_serveur: file.path,
+            type_mime: file.mimetype,
+            taille: file.size,
+            id_document: document.id_document
+        }));
+        await Document.bulkCreate(fichiersauvegarder);
         res.status(201).json({ message: 'Document créé avec succès', document });
     } catch (error) {
         console.error(error);

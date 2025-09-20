@@ -7,10 +7,19 @@ import swaggerSetup from './swagger.js';
 import ApiRoutes from './src/routes/index.js'; // importation des routes d'authentification
 import path from 'node:path';
 import fs from 'node:fs';
+import cors from 'cors';
 
 
 const app = express(); // création de l'application express
 app.use(bodyParser.json()); // pour parser le corps des requêtes JSON
+
+
+// Configuration de CORS pour autoriser les requêtes depuis le frontend
+const corsOptions = {
+  origin: 'http://localhost:5173', // Your frontend's origin
+  credentials: true, // Allow cookies and authentication headers
+};
+app.use(cors(corsOptions));
 
 const logger = pino({ 
     level: process.env.LOG_LEVEL || 'info',  // niveau de log, par défaut 'info'
