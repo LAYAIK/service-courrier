@@ -1,11 +1,11 @@
-import express from 'express';
+import express from "express";
 import bodyParser from 'body-parser';
 import pino from 'pino';
 import { pinoHttp } from 'pino-http';
 import 'dotenv/config'; // charge les variables d'environnement à partir du fichier .env
 import swaggerSetup from './swagger.js';
 import ApiRoutes from './src/routes/index.js'; // importation des routes d'authentification
-import path from 'node:path';
+import path from 'path';
 import fs from 'node:fs';
 import cors from 'cors';
 
@@ -52,7 +52,8 @@ if (!fs.existsSync(uploadsDir)) {
 app.use(express.static('public'));
 
 // Servir les fichiers uploadés depuis le dossier 'uploads'
-app.use('uploads', express.static('uploads'));
+//app.use('uploads', express.static('uploadsDir'));
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 
 export default app; // exporte l'application express

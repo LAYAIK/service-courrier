@@ -54,7 +54,8 @@ export default (sequelize, DataTypes) => {
     },
     date_reception: { // Date de réception du courrier
       type: DataTypes.DATE,
-      allowNull: true
+      allowNull: true,
+      defaultValue: DataTypes.NOW
     },
     date_envoi: { // Date d'envoi du courrier
       type: DataTypes.DATE,
@@ -71,6 +72,10 @@ export default (sequelize, DataTypes) => {
     },
     date_archivage: { // Date d'archivage du courrier
       type: DataTypes.DATE,
+      allowNull: true
+    },
+    delais_traitement: {
+      type: DataTypes.INTEGER,
       allowNull: true
     },
   }, {

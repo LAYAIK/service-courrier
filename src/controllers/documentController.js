@@ -1,6 +1,9 @@
 import db from '../models/index.js';
 const { Document } = db;
 import { Op } from 'sequelize';
+import fs from 'fs';
+import path from 'path';
+import mime from 'mime-types';
 
 export const createDocumentController = async (req, res) => {
     try {
@@ -44,19 +47,19 @@ export const getAllDocumentsController = async (req, res) => {
     }
 };
 
-export const getDocumentByIdController = async (req, res) => {
-    try {
-        const id = req.params.id;
-        const document = await Document.findByPk(id);
-        if (!document) {
-            return res.status(404).json({ message: 'Document non trouvé' });
-        }
-        res.status(200).json(document);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Erreur lors de la récupération du document' });
-    }
-};
+// export const getDocumentByIdController = async (req, res) => {
+//     try {
+//         const id = req.params.id;
+//         const document = await Document.findByPk(id);
+//         if (!document) {
+//             return res.status(404).json({ message: 'Document non trouvé' });
+//         }
+//         res.status(200).json(document);
+//     } catch (error) {
+//         console.error(error);
+//         res.status(500).json({ message: 'Erreur lors de la récupération du document' });
+//     }
+// };
 
 export const updateDocumentController = async (req, res) => {
     try {
@@ -140,3 +143,67 @@ export const searchDocumentsController = async (req, res) => {
         res.status(500).json({ message: 'Erreur interne du serveur lors de la recherche de documents.' });
     }
 };
+
+// telechargrement de fichier
+export const getDocumentByIdController = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Récupérer infos du document en base
+    const doc = await Document.findByPk(id);
+    if (!doc) {
+      return res.status(404).json({ message: "Document non trouvé" });
+    }
+
+    // 2. Construire le chemin absolu vers le fichier
+    const filePath = path.resolve(doc.chemin_serveur); // chemin_serveur stocké en DB
+
+    // 3. Vérifier que le fichier existe
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: "Fichier introuvable sur le serveur" });
+    }
+
+    // 4. Télécharger le fichier
+    res.download(filePath, doc.libelle || "document", (err) => {
+      if (err) {
+        console.error("Erreur lors du téléchargement :", err);
+        console.log("Erreur lors du téléchargement :", err);
+        console.log("Chemin du fichier :", filePath);
+        res.status(500).json({ message: "Erreur lors du téléchargement du fichier" });
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};
+
+export const viewDocumentController =  async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Récupérer infos du document
+    const doc = await Document.findByPk(id);
+    if (!doc) {
+      return res.status(404).json({ message: "Document non trouvé" });
+    }
+
+    // 2. Construire le chemin absolu
+    const filePath = path.resolve(doc.chemin_serveur);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: "Fichier introuvable" });
+    }
+
+    // 3. Déterminer le type MIME
+    const mimeType = mime.lookup(filePath) || "application/octet-stream";
+
+    // 4. Envoyer le fichier pour affichage (pas téléchargement)
+    res.setHeader("Content-Type", mimeType);
+    fs.createReadStream(filePath).pipe(res);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+}

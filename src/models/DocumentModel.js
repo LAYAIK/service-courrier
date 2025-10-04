@@ -25,7 +25,11 @@ const Document = sequelize.define('Document', {
   taille: {
     type: DataTypes.INTEGER,
     allowNull: true
-  }
+  },
+  id_message: {
+    type: DataTypes.UUID,
+    allowNull: true
+  },
 }, {
   tableName: 'Documents',
   timestamps: true,

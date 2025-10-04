@@ -258,7 +258,8 @@ import {
     getDocumentByIdController,
     updateDocumentController,
     deleteDocumentController,
-    searchDocumentsController
+    searchDocumentsController,
+    viewDocumentController
 
 } from '../controllers/documentController.js';
 import { authenticateToken} from '../middlewares/authMiddleware.js';
@@ -269,18 +270,24 @@ import supprimerDocumentMiddleware from '../middlewares/supprimerDocumentMiddlew
 const router = express.Router();
 
 router.route('/api/documents')
-    .get(authenticateToken, authorizeWithScopes('document.lire'), getAllDocumentsController)
+    .get(getAllDocumentsController)
     .post(authenticateToken, authorizeWithScopes('document.creer'), createDocumentController);
 
 router.route('/api/documents/:id')
-    .get(authenticateToken, authorizeWithScopes('document.lire'), getDocumentByIdController)
+    .get(
+        // authenticateToken, authorizeWithScopes('document.lire'), 
+    getDocumentByIdController)
+
     // L'utilisateur veut modifier un document. Le scope dépend du statut du document avec le middleware 'modifierDocumentMiddleware'.
     .put(authenticateToken, modifierDocumentMiddleware, updateDocumentController)
     // L'utilisateur veut supprimer un document. Le scope depend du statut et archivé du document avec le middleware 'supprimerDocumentMiddleware'.
-    .delete(authenticateToken, supprimerDocumentMiddleware, deleteDocumentController);
+    .delete( deleteDocumentController);
 
 router.route('/api/documents/search')
     .get(authenticateToken, authorizeWithScopes('document.lire'), searchDocumentsController);
+
+router.route('/api/documents/:id/view')
+    .get( viewDocumentController);
 
 
 // const router = express.Router();

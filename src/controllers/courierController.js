@@ -48,41 +48,63 @@ export const getCourierById = async (req, res) => {
 // A more robust and correct version of your controller function
 export const createCourier = async (req, res) => {
     try {
-        // Destructuring variables at the top for clarity
+        // Ne pas destructurer reference_courrier ici
         const {
             id_objet, date_envoi, date_reception, date_archivage, date_traitement,
-            est_archive, reference_courrier, id_structure, id_priorite, contenu,
+            est_archive, id_structure, id_priorite, contenu, note,
             id_type_courrier, id_status, id_structure_destinataire, id_utilisateur
         } = req.body;
 
-        console.log(' data de la requête ', req.body);
-        
-        // Log files to see if Multer is working correctly
         console.log('Fichiers téléchargés:', req.files);
 
-        // Basic validation
-        if (!reference_courrier || !contenu) {
-            return res.status(400).json({ message: 'Les champs reference_courrier et contenu sont requis.' });
+        if (!id_objet) {
+            throw new Error('Le champ objet est requis.');
         }
 
-        // Use a managed transaction to ensure data integrity
         const transactionResult = await sequelize.transaction(async (t) => {
-            const existingCourier = await Courrier.findOne({ where: { reference_courrier } }, { transaction: t });
-            if (existingCourier) {
-                throw new Error('Un courrier avec cette référence existe déjà.');
+            const now = new Date();
+            const AA = String(now.getFullYear()).slice(-2);
+            const MM = String(now.getMonth() + 1).padStart(2, '0');
+
+            let reference_courrier = req.body.reference_courrier; // 🔑 On garde la main dessus
+
+            if (!reference_courrier) {
+                const dernierCourrier = await Courrier.findOne({
+                    order: [['createdAt', 'DESC']],
+                    limit: 1,
+                    attributes: ['reference_courrier'],
+                    lock: true,
+                    transaction: t
+                });
+
+                console.log('Dernier courrier trouvé:', dernierCourrier ? dernierCourrier.reference_courrier : 'Aucun');
+
+                let nouveauNumero = 1;
+                if (dernierCourrier) {
+                    const parts = dernierCourrier.reference_courrier.split("-");
+                    nouveauNumero = parseInt(parts[1]) + 1;
+                }
+            
+
+                reference_courrier = `DRH-${nouveauNumero}-${MM}-${AA}`;
+            } else {
+                const existingCourier = await Courrier.findOne({
+                    where: { reference_courrier },
+                    transaction: t
+                });
+                if (existingCourier) {
+                    throw new Error('Un courrier avec cette référence existe déjà.');
+                }
             }
 
-            // Create the new courier record
             const newCourier = await Courrier.create({
                 est_archive, reference_courrier, contenu, date_envoi, date_reception,
-                date_archivage, date_traitement, id_type_courrier, id_status,
+                date_archivage, date_traitement, id_type_courrier, id_status, note,
                 id_structure, id_priorite, id_objet, id_structure_destinataire, id_utilisateur
             }, { transaction: t });
 
-            // If files were uploaded, process and save them
-            const fichierTelecharger = req.files;
-            if (fichierTelecharger && fichierTelecharger.length > 0) {
-                const fichiersauvegarder = fichierTelecharger.map(file => ({
+            if (req.files && req.files.length > 0) {
+                const fichiersauvegarder = req.files.map(file => ({
                     libelle: file.originalname,
                     chemin_serveur: file.path,
                     type_mime: file.mimetype,
@@ -92,37 +114,39 @@ export const createCourier = async (req, res) => {
                 await Document.bulkCreate(fichiersauvegarder, { transaction: t });
             }
 
-            // Record the action in the history
-            const note = 'Le courrier a bien été créé';
+
+            // 2. Émission de la notification via Socket.IO
+            // Note: 'io' doit être accessible ici. Il est préférable de le passer ou l'importer.
+            // io.emit('new_courrier_notification', {
+            // reference_courrier: newCourier.reference_courrier,
+            // id: newCourier.id_courrier,
+            // // ... autres données utiles pour la notification
+            // });
+
             await HistoriqueCourrier.create({
                 id_courrier: newCourier.id_courrier,
                 action: 'Enregistrer',
-                id_structure: id_structure,
-                id_utilisateur: id_utilisateur,
-                id_type_courrier: id_type_courrier,
-                note: note
+                id_structure,
+                id_utilisateur,
+                id_type_courrier,
+                reference_courrier,
+                id_objet,
+                note: 'Le courrier a bien été créé'
             }, { transaction: t });
-            
-            // Return the result from the transaction to be sent to the client
+
             return {
                 message: 'Courrier créé avec succès',
                 courrier: newCourier.toJSON()
             };
         });
 
-        // If the transaction is successful, send the final response
         res.status(201).json(transactionResult);
 
     } catch (error) {
-        // This catch block handles all errors, including the one we threw
         console.error('Erreur lors de la création du courrier:', error);
-        
-        // Check for specific error types to provide better feedback
         if (error.message.includes('Un courrier avec cette référence existe déjà')) {
-            return res.status(409).json({ message: error.message }); // 409 Conflict
+            return res.status(409).json({ message: error.message });
         }
-        
-        // Send a generic 500 error for unhandled exceptions
         res.status(500).json({ message: 'Erreur interne du serveur lors de la création du courrier' });
     }
 };
@@ -132,8 +156,13 @@ export const updateCourier = async (req, res) => {
         const { id } = req.params;
 
         const { id_objet, date_envoi,date_reception,date_archivage,date_traitement,id_utilisateur,
-            est_archive, id_destinataires, id_status,id_structure_destinataire,note,
+            est_archive, id_destinataires, id_status,id_structure_destinataire,note, reference_courrier,
             id_structure,id_priorite,documents_associes, contenu , id_type_courrier, id_archive } = req.body;
+
+
+            console.log('mise a jour data', req.body);
+
+            console.log('fichier', req.files)
             
             if (!id_utilisateur && !id) {
                 return res.status(400).json({ message: 'L\'ID du courrier et l\'utilisateur sont requis' });
@@ -181,9 +210,20 @@ export const updateCourier = async (req, res) => {
         if (id_structure) courier.id_structure = id_structure;
         if (id_objet) courier.id_objet = id_objet;
         if (contenu) courier.contenu = contenu;
-        if(note) courier.note= note;
+        if (note) courier.note= note;
         if (id_structure_destinataire) courier.id_structure_destinataire = final_id_structure_destinataire;
         await courier.save({ transaction: t });
+
+        if (req.files && req.files.length > 0) {
+                const fichiersauvegarder = req.files.map(file => ({
+                    libelle: file.originalname,
+                    chemin_serveur: file.path,
+                    type_mime: file.mimetype,
+                    taille: file.size,
+                    id_courrier: id
+                }));
+                await Document.bulkCreate(fichiersauvegarder, { transaction: t });
+            }
 
         // Enregistrer l'action dans l'historique
             await HistoriqueCourrier.create({
@@ -192,7 +232,10 @@ export const updateCourier = async (req, res) => {
                 id_structure: id_structure,
                 id_structure_destinataire:final_id_structure_destinataire,
                 id_utilisateur: id_utilisateur,
-                id_type_courrier: id_type_courrier
+                id_type_courrier: id_type_courrier,
+                id_objet: id_objet,
+                reference_courrier: reference_courrier,
+                note: note,
             }, { transaction: t })
 
             // Retourner les informations mises à jour
@@ -204,6 +247,7 @@ export const updateCourier = async (req, res) => {
     res.status(200).json(result);
     } catch (error) {
         console.error(error);
+        console.log('erreur ',error);
         res.status(500).json({ message: 'Erreur lors de la mise à jour du courrier' });
     }
 }
@@ -309,14 +353,14 @@ const sendError = (res, statusCode, message) => {
 };
 export const transfertCourier = async (req, res) => {
     // 1. Récupérer les données depuis la requête
-    const {id_structure_nouveau, id_status, id_utilisateur_transfert, note, id_type_courrier } = req.body;
+    const {id_structure_nouveau, id_status, id_utilisateur_transfert, note, id_type_courrier, id_priorite, delais_traitement } = req.body;
     const  id_courrier  = req.params.id;
 
     // 2. Vérifier que l'ID du courrier est fourni
     if (!id_courrier) {
         return sendError(res, 400, 'L\'ID du courrier est requis dans les paramètres de l\'URL.');
     }
-    console.log('Transfert de courrier:', { id_courrier, id_structure_nouveau, id_status, id_utilisateur_transfert, id_note });
+    console.log('Transfert de courrier:', req.body);
     // 3. Validation des données
     if (!id_structure_nouveau || !id_status) {
         return sendError(res, 400, 'Les identifiants du courrier, de la nouvelle structure et du statut sont requis.');
@@ -337,7 +381,22 @@ export const transfertCourier = async (req, res) => {
             courrier.id_status = id_status; 
             courrier.id_structure = id_structure_nouveau;
             courrier.id_utilisateur = null; 
+            courrier.id_priorite = id_priorite || courrier.id_priorite;
+            courrier.note = note;
+            courrier.delais_traitement = delais_traitement;
+            
             await courrier.save({ transaction: t });
+
+            if (req.files && req.files.length > 0) {
+                const fichiersauvegarder = req.files.map(file => ({
+                    libelle: file.originalname,
+                    chemin_serveur: file.path,
+                    type_mime: file.mimetype,
+                    taille: file.size,
+                    id_courrier: id_courrier
+                }));
+                await Document.bulkCreate(fichiersauvegarder, { transaction: t });
+            }
 
             // Enregistrer l'action dans l'historique
             await HistoriqueCourrier.create({
@@ -347,14 +406,14 @@ export const transfertCourier = async (req, res) => {
                 id_structure_destinataire: id_structure_nouveau,
                 id_utilisateur: id_utilisateur_transfert,
                 id_type_courrier: id_type_courrier,
-                note: note
+                note: note,
+                id_objet: courrier.id_objet,
+                reference_courrier: courrier.reference_courrier,
             }, { transaction: t });
 
             // Retourner les informations mises à jour
-            return {
-                message: 'Courrier transféré avec succès.',
-                courrier: courrier.toJSON()
-            };
+            return courrier.toJSON();
+            
         });
 
         // Envoyer la réponse finale si la transaction réussit
