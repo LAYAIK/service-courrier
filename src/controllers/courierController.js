@@ -61,7 +61,7 @@ export const createCourier = async (req, res) => {
             throw new Error('Le champ objet est requis.');
         }
 
-        const transactionResult = await sequelize.transaction(async (t) => {
+        const transactionResult = await sequelize.transaction( async (t) => {
             const now = new Date();
             const AA = String(now.getFullYear()).slice(-2);
             const MM = String(now.getMonth() + 1).padStart(2, '0');

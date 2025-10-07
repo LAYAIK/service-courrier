@@ -170,12 +170,24 @@ import express from "express";
  *       500:
  *         description: Erreur lors de la suppression de l'archive
  */ 
-
+import multer from 'multer';
 
 const router = express.Router();
+
+// Configure storage for Multer
+const storage = multer.diskStorage({
+    destination: (_, __, cb) => {
+        cb(null, 'uploads/'); // The directory where files will be saved
+    },
+    filename: (_, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname); // Unique filename
+    }
+});
+
+const upload = multer({ storage: storage });
 router.route('/api/archives')
     .get(getAllArchives)
-    .post(createArchive);
+    .post( upload.array('fichiers'),createArchive);
 
 router.route('/api/archives/search')
     .get(searchArchives);

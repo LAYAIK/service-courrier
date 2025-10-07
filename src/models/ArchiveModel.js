@@ -14,7 +14,10 @@ const Archive = sequelize.define("Archive", {
         type: DataTypes.TEXT,
         allowNull: true
     },
-    
+    reference_courrier:{
+        type: DataTypes.STRING(246),
+        allowNull: true
+    },
     id_utilisateur: {
         type: DataTypes.UUID,
         allowNull: false
