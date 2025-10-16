@@ -250,7 +250,7 @@
  *       404:
  *         description: Aucun document trouvé
  */
-
+import multer from 'multer';
 import express from 'express';
 import {
     getAllDocumentsController,
@@ -263,15 +263,24 @@ import {
 
 } from '../controllers/documentController.js';
 import { authenticateToken} from '../middlewares/authMiddleware.js';
-import authorizeWithScopes from '../middlewares/authorizationWithScopes.js';
-import modifierDocumentMiddleware from '../middlewares/modifierDocumentMiddleware.js';
-import supprimerDocumentMiddleware from '../middlewares/supprimerDocumentMiddleware.js';
 
 const router = express.Router();
 
+// Configure storage for Multer
+const storage = multer.diskStorage({
+    destination: (_, __, cb) => {
+        cb(null, 'uploads/'); // The directory where files will be saved
+    },
+    filename: (_, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname); // Unique filename
+    }
+});
+
+const upload = multer({ storage: storage });
+
 router.route('/api/documents')
     .get(getAllDocumentsController)
-    .post(authenticateToken, authorizeWithScopes('document.creer'), createDocumentController);
+    .post(upload.array('fichiers'), createDocumentController);
 
 router.route('/api/documents/:id')
     .get(
@@ -279,12 +288,12 @@ router.route('/api/documents/:id')
     getDocumentByIdController)
 
     // L'utilisateur veut modifier un document. Le scope dépend du statut du document avec le middleware 'modifierDocumentMiddleware'.
-    .put(authenticateToken, modifierDocumentMiddleware, updateDocumentController)
+    .put(authenticateToken,  updateDocumentController)
     // L'utilisateur veut supprimer un document. Le scope depend du statut et archivé du document avec le middleware 'supprimerDocumentMiddleware'.
     .delete( deleteDocumentController);
 
 router.route('/api/documents/search')
-    .get(authenticateToken, authorizeWithScopes('document.lire'), searchDocumentsController);
+    .get(authenticateToken, searchDocumentsController);
 
 router.route('/api/documents/:id/view')
     .get( viewDocumentController);

@@ -1,8 +1,5 @@
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config/jwtConfig.js'; // Assurez-vous que le secret JWT est importé correctement
-import db from '../models/index.js';
-
-const { Utilisateur } = db;
 
 // Middleware pour protéger les routes (vérifier le token)
  const authenticateToken = async (req, res, next) => {
@@ -21,16 +18,7 @@ const { Utilisateur } = db;
       const decoded = jwt.verify(token, JWT_SECRET);
       console.log('Token décodé:', decoded); // Pour débogage, à supprimer en production
 
-
-      const user = await Utilisateur.findByPk( decoded.id, {
-        attributes: { exclude: ['password'] }
-      });
-      if (!user) {
-        return res.status(401).json({ message: 'Non autorisé, utilisateur non rencontré.' });
-      };
-      req.user = {
-        id_utilisateur: user.id_utilisateur
-      }; 
+      req.user = decoded;
       next(); // Passer au middleware ou contrôleur suivant
 
     } catch (error) {
@@ -46,11 +34,20 @@ const { Utilisateur } = db;
 
 const authorize = (...roles) => { // Prend un tableau de rôles autorisés (ex: 'admin', 'agent')
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+    if (!req.user || !roles.includes(req.user.id_role)) {
       return res.status(403).json({ message: 'Accès refusé, vous n\'avez pas la permission pour cette action.' });
     }
     next();
   };
 };
 
-export { authenticateToken, authorize };
+const requireScopes = (...requiredScopes) => {
+  return (req, res, next) => {
+    const userScopes = Array.isArray(req.user?.scopeIds) ? req.user.scopeIds : [];
+    const hasAll = requiredScopes.every(s => userScopes.includes(s));
+    if (!hasAll) return res.status(403).json({ error: "Insufficient scope", required: requiredScopes, have: userScopes });
+    next();
+  };
+}
+
+export { authenticateToken, authorize, requireScopes };

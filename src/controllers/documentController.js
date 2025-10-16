@@ -7,26 +7,22 @@ import mime from 'mime-types';
 
 export const createDocumentController = async (req, res) => {
     try {
-        const {id_type_document, id_courrier, description,id_archive } = req.body;
-        const fichierTelecharger = req.file; // Récupérer le fichier téléchargé
+        const { id_utilisateur } = req.body;
+        const fichierTelecharger = req.files; // Récupérer le fichier téléchargé
 
-        if ( !id_type_document) {
+        if ( !id_utilisateur) {
             return res.status(400).json({ message: 'Tous les champs sont requis' });
         }
-
-        const document = await Document.create({id_type_document});
-        if (id_courrier) document.id_courrier = id_courrier;
-        if (description) document.description = description;
-        if (id_archive) document.id_archive = id_archive;
-        await document.save();
+        const document = await Document.create({id_utilisateur});
         const fichiersauvegarder = fichierTelecharger.map(file => ({
             libelle: file.originalname,
             chemin_serveur: file.path,
             type_mime: file.mimetype,
             taille: file.size,
-            id_document: document.id_document
+            id_utilisateur
         }));
         await Document.bulkCreate(fichiersauvegarder);
+
         res.status(201).json({ message: 'Document créé avec succès', document });
     } catch (error) {
         console.error(error);
@@ -64,7 +60,7 @@ export const getAllDocumentsController = async (req, res) => {
 export const updateDocumentController = async (req, res) => {
     try {
         const id = req.params.id;
-        const { libelle, id_type_document, id_courrier, description,id_archive } = req.body;
+        const { libelle, id_type_document, id_utilisateur, description,id_archive } = req.body;
 
         const document = await Document.findByPk(id);
         if (!document) {
@@ -72,7 +68,7 @@ export const updateDocumentController = async (req, res) => {
         }
         if (libelle) document.libelle = libelle;
         if (id_type_document) document.id_type_document = id_type_document;
-        if (id_courrier) document.id_courrier = id_courrier;
+        if (id_utilisateur) document.id_utilisateur = id_utilisateur;
         if (description) document.description = description;
         if (id_archive) document.id_archive = id_archive;
         await document.save();
@@ -114,7 +110,7 @@ export const searchDocumentsController = async (req, res) => {
             filter = {
                 [Op.or]: [
                     { id_document: query }, // Recherche exacte par UUID
-                    { id_courrier: query },
+                    { id_utilisateur: query },
                     { id_archive: query },
                     { id_type_document: query }
                 ]

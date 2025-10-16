@@ -45,111 +45,140 @@ export const getCourierById = async (req, res) => {
     }
 }
 
-// A more robust and correct version of your controller function
 export const createCourier = async (req, res) => {
-    try {
-        // Ne pas destructurer reference_courrier ici
-        const {
-            id_objet, date_envoi, date_reception, date_archivage, date_traitement,
-            est_archive, id_structure, id_priorite, contenu, note,
-            id_type_courrier, id_status, id_structure_destinataire, id_utilisateur
-        } = req.body;
+  const t = await sequelize.transaction();
+  try {
+    const {
+      id_objet,
+      date_envoi,
+      date_reception,
+      date_archivage,
+      date_traitement,
+      est_archive,
+      id_structure,
+      id_priorite,
+      contenu,
+      note,
+      id_type_courrier,
+      id_status,
+      id_structure_destinataire,
+      id_utilisateur,
+      reference_courrier // facultatif
+    } = req.body;
 
-        console.log('Fichiers téléchargés:', req.files);
-
-        if (!id_objet) {
-            throw new Error('Le champ objet est requis.');
-        }
-
-        const transactionResult = await sequelize.transaction( async (t) => {
-            const now = new Date();
-            const AA = String(now.getFullYear()).slice(-2);
-            const MM = String(now.getMonth() + 1).padStart(2, '0');
-
-            let reference_courrier = req.body.reference_courrier; // 🔑 On garde la main dessus
-
-            if (!reference_courrier) {
-                const dernierCourrier = await Courrier.findOne({
-                    order: [['createdAt', 'DESC']],
-                    limit: 1,
-                    attributes: ['reference_courrier'],
-                    lock: true,
-                    transaction: t
-                });
-
-                console.log('Dernier courrier trouvé:', dernierCourrier ? dernierCourrier.reference_courrier : 'Aucun');
-
-                let nouveauNumero = 1;
-                if (dernierCourrier) {
-                    const parts = dernierCourrier.reference_courrier.split("-");
-                    nouveauNumero = parseInt(parts[1]) + 1;
-                }
-            
-
-                reference_courrier = `DRH-${nouveauNumero}-${MM}-${AA}`;
-            } else {
-                const existingCourier = await Courrier.findOne({
-                    where: { reference_courrier },
-                    transaction: t
-                });
-                if (existingCourier) {
-                    throw new Error('Un courrier avec cette référence existe déjà.');
-                }
-            }
-
-            const newCourier = await Courrier.create({
-                est_archive, reference_courrier, contenu, date_envoi, date_reception,
-                date_archivage, date_traitement, id_type_courrier, id_status, note,
-                id_structure, id_priorite, id_objet, id_structure_destinataire, id_utilisateur
-            }, { transaction: t });
-
-            if (req.files && req.files.length > 0) {
-                const fichiersauvegarder = req.files.map(file => ({
-                    libelle: file.originalname,
-                    chemin_serveur: file.path,
-                    type_mime: file.mimetype,
-                    taille: file.size,
-                    id_courrier: newCourier.id_courrier
-                }));
-                await Document.bulkCreate(fichiersauvegarder, { transaction: t });
-            }
-
-
-            // 2. Émission de la notification via Socket.IO
-            // Note: 'io' doit être accessible ici. Il est préférable de le passer ou l'importer.
-            // io.emit('new_courrier_notification', {
-            // reference_courrier: newCourier.reference_courrier,
-            // id: newCourier.id_courrier,
-            // // ... autres données utiles pour la notification
-            // });
-
-            await HistoriqueCourrier.create({
-                id_courrier: newCourier.id_courrier,
-                action: 'Enregistrer',
-                id_structure,
-                id_utilisateur,
-                id_type_courrier,
-                reference_courrier,
-                id_objet,
-                note: 'Le courrier a bien été créé'
-            }, { transaction: t });
-
-            return {
-                message: 'Courrier créé avec succès',
-                courrier: newCourier.toJSON()
-            };
-        });
-
-        res.status(201).json(transactionResult);
-
-    } catch (error) {
-        console.error('Erreur lors de la création du courrier:', error);
-        if (error.message.includes('Un courrier avec cette référence existe déjà')) {
-            return res.status(409).json({ message: error.message });
-        }
-        res.status(500).json({ message: 'Erreur interne du serveur lors de la création du courrier' });
+    if (!id_objet || !id_type_courrier || !id_structure || !id_utilisateur) {
+      throw new Error("Certains champs obligatoires sont manquants.");
     }
+
+    // === 1. Vérification si la référence est fournie ===
+    let finalRef = reference_courrier?.trim() || null;
+
+    if (finalRef) {
+      // Vérifie que la référence n'existe pas déjà
+      const existingRef = await Courrier.findOne({
+        where: { reference_courrier: finalRef },
+        transaction: t,
+      });
+
+      if (existingRef) {
+        throw new Error("Un courrier avec cette référence existe déjà !");
+      }
+    } else {
+      // === 2. Génération automatique ===
+      const now = new Date();
+      const year = String(now.getFullYear()).slice(-2);
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const randomNumber = Math.floor(1000 + Math.random() * 9000);
+
+      const dernier = await Courrier.findOne({
+        order: [["createdAt", "DESC"]],
+        attributes: ["reference_courrier"],
+        lock: true,
+        transaction: t,
+      });
+
+      let nextNumber = 1;
+      if (dernier && dernier.reference_courrier) {
+        // Extraction du numéro
+        const match = dernier.reference_courrier.match(/-(\d+)-/);
+        if (match) {
+          nextNumber = parseInt(match[1]) + 1;
+        }
+      }
+
+      finalRef = `DRH${randomNumber}-${nextNumber}-${month}-${year}`;
+    }
+
+    // === 3. Création du courrier principal ===
+    const newCourier = await Courrier.create(
+      {
+        reference_courrier: finalRef,
+        contenu,
+        est_archive: est_archive ?? false,
+        date_envoi,
+        date_reception,
+        date_archivage,
+        date_traitement,
+        id_type_courrier,
+        id_status,
+        id_priorite,
+        id_structure,
+        id_structure_destinataire,
+        id_utilisateur,
+        id_objet,
+        note,
+      },
+      { transaction: t }
+    );
+
+    // === 4. Gestion des fichiers joints ===
+    if (req.files && req.files.length > 0) {
+      const fichiers = req.files.map((file) => ({
+        libelle: file.originalname,
+        chemin_serveur: file.path,
+        type_mime: file.mimetype,
+        taille: file.size,
+        id_courrier: newCourier.id_courrier,
+      }));
+
+      await Document.bulkCreate(fichiers, { transaction: t });
+    }
+
+    // === 5. Historique automatique ===
+    await HistoriqueCourrier.create(
+      {
+        id_courrier: newCourier.id_courrier,
+        action: "Création du courrier",
+        id_structure,
+        id_utilisateur,
+        id_type_courrier,
+        reference_courrier: finalRef,
+        id_objet,
+        note: "Courrier créé avec succès",
+      },
+      { transaction: t }
+    );
+
+    await t.commit();
+
+    return res.status(201).json({
+      message: "Courrier créé avec succès",
+      courrier: newCourier,
+    });
+  } catch (error) {
+    await t.rollback();
+    console.error("❌ Erreur création courrier:", error);
+
+    if (error.message.includes("existe déjà")) {
+      return res.status(409).json({ message: error.message });
+    }
+
+    return res
+      .status(500)
+      .json({ message: "Erreur interne lors de la création du courrier" });
+  }
 };
+
 
 export const updateCourier = async (req, res) => {
     try {

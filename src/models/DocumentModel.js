@@ -8,7 +8,7 @@ const Document = sequelize.define('Document', {
   },
   libelle: {
     type: DataTypes.STRING(100),
-    allowNull: false
+    allowNull: true
   },
   description: {
     type: DataTypes.TEXT,
@@ -27,6 +27,10 @@ const Document = sequelize.define('Document', {
     allowNull: true
   },
   id_message: {
+    type: DataTypes.UUID,
+    allowNull: true
+  },
+  id_utilisateur: {
     type: DataTypes.UUID,
     allowNull: true
   },

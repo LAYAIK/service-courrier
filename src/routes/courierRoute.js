@@ -1,6 +1,7 @@
 import { createCourier, deleteCourier, getAllCouriers, getCourierById, searchCouriers, updateCourier, transfertCourier } from "../controllers/courierController.js";
 import express from "express";
 import multer from 'multer';
+import { authenticateToken, requireScopes  } from '../middlewares/authMiddleware.js'
 
 /**
  * @fileOverview Route pour les courriers
@@ -308,19 +309,19 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 router.route("/api/couriers")
-.get(getAllCouriers) // Récupérer tous les courriers
-.post( upload.array('fichiers'),createCourier); // Créer un nouveau courrier
+.get(authenticateToken, requireScopes("ce4e4bf4-b14a-477c-a32e-2cd800acede9"), getAllCouriers) // Récupérer tous les courriers
+.post( upload.array('fichiers'),authenticateToken, requireScopes("3c77ab52-7586-4c79-a948-cc28b20457fe"), createCourier); // Créer un nouveau courrier
 
 router.route("/api/couriers/search")
     .get(searchCouriers); // Rechercher des courriers par mot-clé
 
 router.route("/api/couriers/:id")   
-    .get(getCourierById) // Récupérer un courrier par ID
-    .put(upload.array('fichiers'),updateCourier) // Mettre à jour un courrier par ID
-    .delete(deleteCourier); // Supprimer un courrier par ID
+    .get(authenticateToken, requireScopes("ce4e4bf4-b14a-477c-a32e-2cd800acede9"), getCourierById) // Récupérer un courrier par ID
+    .put(upload.array('fichiers'), authenticateToken, requireScopes("abad4cc2-f595-44ec-a33c-79ea6c5908c1"), updateCourier) // Mettre à jour un courrier par ID
+    .delete(authenticateToken, requireScopes("407d83f9-ef1f-4447-8778-2d1fa481d992"),deleteCourier); // Supprimer un courrier par ID
 
 router.route("/api/couriers/:id/transfert")
-    .put(upload.array('fichiers'),transfertCourier)
+    .put(upload.array('fichiers'),authenticateToken, requireScopes("ef120502-c060-4ae0-9575-9506832c1a1e"), transfertCourier)
 
 
 

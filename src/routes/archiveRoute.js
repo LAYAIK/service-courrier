@@ -1,5 +1,6 @@
 import { createArchive, getAllArchives, getArchiveById, updateArchive, deleteArchive, searchArchives } from "../controllers/archiveController.js";
 import express from "express";
+import { authenticateToken, requireScopes  } from '../middlewares/authMiddleware.js'
 
 
 /**
@@ -186,8 +187,8 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 router.route('/api/archives')
-    .get(getAllArchives)
-    .post( upload.array('fichiers'),createArchive);
+    .get(authenticateToken, requireScopes("617c6ae0-5d14-48fe-9b0a-ddf9c56d5b2c"),getAllArchives)
+    .post( upload.array('fichiers'),authenticateToken, requireScopes("bba0f76b-9748-45ab-9be6-5c81767bf352"),createArchive);
 
 router.route('/api/archives/search')
     .get(searchArchives);
@@ -195,7 +196,7 @@ router.route('/api/archives/search')
 router.route('/api/archives/:id')
     .get(getArchiveById)
     .put(updateArchive)
-    .delete(deleteArchive);
+    .delete(authenticateToken, requireScopes("f29abc72-1080-438e-9896-69140d036ebf"),deleteArchive);
 
 const archiveRoutes = router;
 export default archiveRoutes
