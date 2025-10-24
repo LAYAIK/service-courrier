@@ -16,6 +16,7 @@ import { JWT_SECRET } from '../config/jwtConfig.js'; // Assurez-vous que le secr
         return res.status(401).json({ message: 'Non autorisé, token manquant.' });
       };
       const decoded = jwt.verify(token, JWT_SECRET);
+      
       console.log('Token décodé:', decoded); // Pour débogage, à supprimer en production
 
       req.user = decoded;

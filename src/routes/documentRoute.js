@@ -298,23 +298,5 @@ router.route('/api/documents/search')
 router.route('/api/documents/:id/view')
     .get( viewDocumentController);
 
-
-// const router = express.Router();
-
-// router.route('/api/documents')
-//     .get( getAllDocumentsController)
-//     .post(createDocumentController);
-
-// router.route('/api/documents/search')
-//     .get( searchDocumentsController);
-
-
-// router.route('/api/documents/:id')
-//     .get(getDocumentByIdController)
-//     .put(updateDocumentController)
-//     .delete(deleteDocumentController);
-
-
-
 const documentRoutes = router;
 export default documentRoutes;

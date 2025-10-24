@@ -2,7 +2,7 @@ import db from "../models/index.js";
 const { Courrier, Document,HistoriqueCourrier } = db;
 import { Op } from "sequelize";
 import sequelize from "../config/sequelizeInstance.js";
-
+/*
 export const getAllCouriers = async (req, res) => {
     try {
         const couriers = await Courrier.findAll();
@@ -14,7 +14,40 @@ export const getAllCouriers = async (req, res) => {
         console.error(error);
         res.status(500).json({ message: 'Erreur lors de la récupération des courriers' });
     }
-}
+} */
+
+    export const getAllCouriers = async (req, res) => {
+  try {
+    const user = req.user; // récupéré via ton middleware JWT
+
+    console.log('request user',user)
+
+    let whereClause = {};
+
+    // 🟢 Si l'utilisateur est Réceptionniste ou Directeur => ils voient tout
+    if (user.scopeIds.includes("3c77ab52-7586-4c79-a948-cc28b20457fe" || "58fa8261-cabd-417d-b87d-eff2eb530df1")) {
+      whereClause = {}; // pas de restriction
+    } 
+    else {
+      // 🔴 Sinon, on ne lui montre que les courriers liés à sa structure ou à lui-même
+      whereClause = {
+        id_structure: user.structure,
+        // id_utilisateur_transmis: user.id,
+      };
+    }
+
+    const courriers = await Courrier.findAll({
+      where: whereClause,
+      order: [["createdAt", "DESC"]],
+    });
+
+    res.status(200).json(courriers);
+  } catch (error) {
+    console.error("Erreur lors du chargement des courriers:", error);
+    res.status(500).json({ error: "Erreur interne du serveur" });
+  }
+};
+
 
 export const getCourierById = async (req, res) => { 
 
@@ -225,6 +258,11 @@ export const updateCourier = async (req, res) => {
         if (!courier) {
             return res.status(404).json({ message: 'Courrier non rencontré' });
         }
+        
+        if (courier.id_utlisateur_transmis === req.user.id_utilisateur) {
+            return res.status(403).json({ error: "Vous ne pouvez plus modifier un courrier que vous avez transmis." });
+        }
+        
         if (documents_associes) courier.documents_associes = documents_associes;
         if (date_archivage) courier.date_archivage = date_archivage;
         if (date_envoi) courier.date_envoi = date_envoi;
@@ -380,77 +418,107 @@ export const searchCouriers = async (req, res) => {
 const sendError = (res, statusCode, message) => {
     res.status(statusCode).json({ message });
 };
+const sendSuccess = (res, statusCode, message, data) => {
+    res.status(statusCode).json({ message, data });
+}
+
+/**
+ * Transfert d’un courrier d’une structure à une autre.
+ * Garantit l’atomicité via une transaction Sequelize.
+ */
 export const transfertCourier = async (req, res) => {
-    // 1. Récupérer les données depuis la requête
-    const {id_structure_nouveau, id_status, id_utilisateur_transfert, note, id_type_courrier, id_priorite, delais_traitement } = req.body;
-    const  id_courrier  = req.params.id;
+  const transaction = await sequelize.transaction();
+  try {
+    const {
+      id_structure_nouveau,
+      id_status,
+      id_utilisateur_transfert,
+      note,
+      id_type_courrier,
+      id_priorite,
+      delais_traitement,
+      date_envoi,
+    } = req.body;
 
-    // 2. Vérifier que l'ID du courrier est fourni
-    if (!id_courrier) {
-        return sendError(res, 400, 'L\'ID du courrier est requis dans les paramètres de l\'URL.');
+    const { id } = req.params;
+    if (!id) return sendError(res, 400, "ID du courrier manquant dans l'URL.");
+
+    // ✅ Validation stricte des entrées
+    if (!id_structure_nouveau || !id_status || !id_utilisateur_transfert) {
+      return sendError(
+        res,
+        400,
+        "Les champs id_structure_nouveau, id_status et id_utilisateur_transfert sont requis."
+      );
     }
-    console.log('Transfert de courrier:', req.body);
-    // 3. Validation des données
-    if (!id_structure_nouveau || !id_status) {
-        return sendError(res, 400, 'Les identifiants du courrier, de la nouvelle structure et du statut sont requis.');
+
+    // 🔒 Recherche du courrier avec verrouillage pour éviter les accès concurrents
+    const courrier = await Courrier.findByPk(id, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!courrier) {
+      await transaction.rollback();
+      return sendError(res, 404, "Courrier introuvable.");
     }
 
-    // 4. Utilisation d'une transaction pour garantir l'atomicité des opérations
-    try {
-        const result = await sequelize.transaction(async (t) => {
-            // Rechercher le courrier et le verrouiller pour la transaction
-            const courrier = await Courrier.findByPk(id_courrier, { transaction: t, lock: t.LOCK.UPDATE });
+    const ancien_id_structure = courrier.id_structure;
 
-            if (!courrier) {
-                return sendError(res, 404, 'Courrier non trouvé.');
-            }
+    // 📨 Mise à jour du courrier transféré
+    await courrier.update(
+      {
+        id_structure: id_structure_nouveau,
+        id_status,
+        id_priorite: id_priorite || courrier.id_priorite,
+        note: note || courrier.note,
+        delais_traitement: delais_traitement || courrier.delais_traitement,
+        id_utilisateur_transmis: id_utilisateur_transfert,
+        id_utilisateur: null, // Réinitialisation car le courrier change de responsable
+        date_envoi: date_envoi || new Date(),
+      },
+      { transaction }
+    );
 
-            // Mettre à jour le courrier
-            const ancien_id_structure = courrier.id_structure;
-            courrier.id_status = id_status; 
-            courrier.id_structure = id_structure_nouveau;
-            courrier.id_utilisateur = null; 
-            courrier.id_priorite = id_priorite || courrier.id_priorite;
-            courrier.note = note;
-            courrier.delais_traitement = delais_traitement;
-            
-            await courrier.save({ transaction: t });
-
-            if (req.files && req.files.length > 0) {
-                const fichiersauvegarder = req.files.map(file => ({
-                    libelle: file.originalname,
-                    chemin_serveur: file.path,
-                    type_mime: file.mimetype,
-                    taille: file.size,
-                    id_courrier: id_courrier
-                }));
-                await Document.bulkCreate(fichiersauvegarder, { transaction: t });
-            }
-
-            // Enregistrer l'action dans l'historique
-            await HistoriqueCourrier.create({
-                id_courrier: id_courrier,
-                action: 'Transfert',
-                id_structure: ancien_id_structure,
-                id_structure_destinataire: id_structure_nouveau,
-                id_utilisateur: id_utilisateur_transfert,
-                id_type_courrier: id_type_courrier,
-                note: note,
-                id_objet: courrier.id_objet,
-                reference_courrier: courrier.reference_courrier,
-            }, { transaction: t });
-
-            // Retourner les informations mises à jour
-            return courrier.toJSON();
-            
-        });
-
-        // Envoyer la réponse finale si la transaction réussit
-        res.status(200).json(result);
-
-    } catch (error) {
-        console.error('Erreur lors du transfert du courrier:', error);
-        // La transaction sera automatiquement annulée en cas d'erreur
-        sendError(res, 500, 'Une erreur interne est survenue.');
+    // 📂 Gestion des fichiers joints au transfert
+    if (req.files?.length > 0) {
+      const fichiers = req.files.map((file) => ({
+        libelle: file.originalname,
+        chemin_serveur: file.path,
+        type_mime: file.mimetype,
+        taille: file.size,
+        id_courrier: id,
+      }));
+      await Document.bulkCreate(fichiers, { transaction });
     }
+
+    // 🧾 Historisation du transfert
+    await HistoriqueCourrier.create(
+      {
+        id_courrier: id,
+        action: "Transfert",
+        id_structure: ancien_id_structure,
+        id_structure_destinataire: id_structure_nouveau,
+        id_utilisateur: id_utilisateur_transfert,
+        id_type_courrier,
+        id_objet: courrier.id_objet,
+        note,
+        reference_courrier: courrier.reference_courrier,
+      },
+      { transaction }
+    );
+
+    // ✅ Validation de la transaction
+    await transaction.commit();
+
+    return sendSuccess(res, 200, "Courrier transféré avec succès.", courrier);
+  } catch (error) {
+    console.error("❌ Erreur lors du transfert du courrier :", error);
+    await transaction.rollback();
+    return sendError(
+      res,
+      500,
+      "Une erreur interne est survenue lors du transfert du courrier."
+    );
+  }
 };

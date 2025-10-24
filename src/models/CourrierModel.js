@@ -31,6 +31,10 @@ export default (sequelize, DataTypes) => {
       type: DataTypes.UUID,
       allowNull: true
     },
+    id_utilisateur_transmis: {
+      type: DataTypes.UUID,
+      allowNull: true
+    },
     id_structure_destunataire: {
       type: DataTypes.UUID,
       allowNull: true
@@ -54,8 +58,7 @@ export default (sequelize, DataTypes) => {
     },
     date_reception: { // Date de réception du courrier
       type: DataTypes.DATE,
-      allowNull: true,
-      defaultValue: DataTypes.NOW
+      allowNull: true
     },
     date_envoi: { // Date d'envoi du courrier
       type: DataTypes.DATE,
