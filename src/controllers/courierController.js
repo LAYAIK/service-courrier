@@ -522,3 +522,118 @@ export const transfertCourier = async (req, res) => {
     );
   }
 };
+
+
+//import { sequelize } from "../models/index.js";
+//import { Courrier, Document, HistoriqueCourrier } from "../models/index.js";
+//import { sendError } from "../utils/responseUtils.js";
+
+/**
+ * Transfert multiple d’un courrier vers plusieurs structures.
+ * Reçoit :
+ *  - req.params.id (id_courrier)
+ *  - req.body.structures (array d’id_structure)
+ *  - Autres métadonnées (note, id_priorite, etc.)
+ *  - req.files (pièces jointes)
+*/
+/*
+export const transfertMultipleCourrier = async (req, res) => {
+  const { id } = req.params;
+  const {
+    structures, // ex: [ 'uuid-struct1', 'uuid-struct2' ]
+    id_status,
+    id_utilisateur_transfert,
+    id_type_courrier,
+    id_priorite,
+    delais_traitement,
+    note,
+    date_envoi,
+  } = req.body;
+
+  if (!id) return sendError(res, 400, "ID du courrier manquant.");
+  if (!structures || !Array.isArray(structures) || structures.length === 0)
+    return sendError(res, 400, "Aucune structure sélectionnée pour le transfert.");
+
+  const files = req.files || [];
+
+  try {
+    // Commencer une transaction atomique
+    const result = await sequelize.transaction(async (t) => {
+      const courrier = await Courrier.findByPk(id, {
+        transaction: t,
+        lock: t.LOCK.UPDATE,
+      });
+
+      if (!courrier) return sendError(res, 404, "Courrier introuvable.");
+
+      const ancien_id_structure = courrier.id_structure;
+
+      // Boucle sur chaque structure destinataire
+      for (const id_structure_nouveau of structures) {
+        // --- Étape 1 : Création de l’historique du transfert ---
+        await HistoriqueCourrier.create(
+          {
+            id_courrier: id,
+            action: "Transfert multiple",
+            id_structure: ancien_id_structure,
+            id_structure_destinataire: id_structure_nouveau,
+            id_utilisateur: id_utilisateur_transfert,
+            id_type_courrier,
+            note,
+            id_objet: courrier.id_objet,
+            reference_courrier: courrier.reference_courrier,
+          },
+          { transaction: t }
+        );
+
+        // --- Étape 2 : Création d’une copie logique du courrier (si souhaité) ---
+        // Si tu veux qu’il apparaisse dans la boîte de réception de chaque structure :
+        await Courrier.create(
+          {
+            ...courrier.toJSON(),
+            id_courrier: undefined, // éviter le conflit de clé primaire
+            id_structure: id_structure_nouveau,
+            id_status,
+            id_utilisateur: null,
+            id_priorite: id_priorite || courrier.id_priorite,
+            note,
+            delais_traitement,
+            id_utilisateur_transmis: id_utilisateur_transfert,
+            date_envoi,
+          },
+          { transaction: t }
+        );
+
+        // --- Étape 3 : Sauvegarde des fichiers joints ---
+        if (files.length > 0) {
+          const fichiersSauvegarder = files.map((file) => ({
+            libelle: file.originalname,
+            chemin_serveur: file.path,
+            type_mime: file.mimetype,
+            taille: file.size,
+            id_courrier: id, // ou l’id du nouveau courrier si tu dupliques
+          }));
+
+          await Document.bulkCreate(fichiersSauvegarder, { transaction: t });
+        }
+      }
+
+      // --- Étape 4 : Mise à jour du courrier original ---
+      courrier.id_status = id_status;
+      courrier.note = note;
+      courrier.id_utilisateur_transmis = id_utilisateur_transfert;
+      courrier.date_envoi = date_envoi;
+      await courrier.save({ transaction: t });
+
+      return { message: "Transfert multiple réussi", reference: courrier.reference_courrier };
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("Erreur lors du transfert multiple:", error);
+    return sendError(res, 500, "Erreur lors du transfert multiple de courrier.");
+  }
+};
+        const structures = JSON.parse(req.body.structures);
+
+*/
